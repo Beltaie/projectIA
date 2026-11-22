@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     app_description: str = "Backend API for SmartCampus AI"
     app_version: str = "1.0.0"
     environment: str = "development"
+    database_url: str = "postgresql+psycopg://smartcampus:smartcampus_dev_password@localhost:5432/smartcampus"
     cors_origins: list[str] = Field(
         default_factory=lambda: [
             "http://localhost:3000",
