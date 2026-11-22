@@ -15,10 +15,14 @@ import {
   BackendHealth,
   Citation,
   ProgramComparison,
+  LanguageMode,
 } from './types';
 import { Sparkles, Compass, GraduationCap, Building2, CheckCircle2 } from 'lucide-react';
 
 export function App() {
+  // Active Language preference ('auto' | 'fr' | 'ar_tn' | 'arabizi')
+  const [selectedLanguage, setSelectedLanguage] = useState<LanguageMode | 'auto'>('auto');
+
   // Backend connectivity state
   const [health, setHealth] = useState<BackendHealth>({
     status: 'checking',
@@ -94,14 +98,17 @@ Pour commencer : **quel est votre diplôme ou niveau actuel** et quel domaine vo
   }, [messages, isLoading]);
 
   // Handle message sending
-  const handleSendMessage = async (text: string) => {
+  const handleSendMessage = async (text: string, forceLang?: LanguageMode) => {
     if (!text.trim() || isLoading) return;
+
+    const langToUse: LanguageMode | undefined = forceLang || (selectedLanguage !== 'auto' ? selectedLanguage : undefined);
 
     // 1. Add user message
     const userMsg: ChatMessage = {
       id: `user-${Date.now()}`,
       role: 'user',
       content: text,
+      language: langToUse,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
 
@@ -114,7 +121,7 @@ Pour commencer : **quel est votre diplôme ou niveau actuel** et quel domaine vo
 
     try {
       // 3. Get intelligent multimodal AI response
-      const assistantMsg = await sendUserMessage(text, [...messages, userMsg], updated);
+      const assistantMsg = await sendUserMessage(text, [...messages, userMsg], updated, langToUse);
       setMessages((prev) => [...prev, assistantMsg]);
     } catch {
       setMessages((prev) => [
@@ -143,6 +150,8 @@ Pour commencer : **quel est votre diplôme ou niveau actuel** et quel domaine vo
       <Header
         health={health}
         profile={profile}
+        selectedLanguage={selectedLanguage}
+        onSelectLanguage={setSelectedLanguage}
         onRefreshHealth={fetchHealth}
         onToggleProfile={() => setIsProfileOpen(!isProfileOpen)}
         isProfileOpen={isProfileOpen}
@@ -210,7 +219,12 @@ Pour commencer : **quel est votre diplôme ou niveau actuel** et quel domaine vo
             />
 
             {/* Main Chat Input Bar */}
-            <ChatInput onSendMessage={handleSendMessage} isLoading={isLoading} />
+            <ChatInput
+              onSendMessage={handleSendMessage}
+              isLoading={isLoading}
+              selectedLanguage={selectedLanguage}
+              onSelectLanguage={setSelectedLanguage}
+            />
 
             <div className="flex items-center justify-between text-[11px] text-slate-500 px-1 pt-1">
               <span>SmartCampus AI • Multimodal Architecture IIT/ISB</span>

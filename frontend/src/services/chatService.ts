@@ -105,9 +105,10 @@ export function extractProfileSignals(
 export async function sendUserMessage(
   prompt: string,
   history: ChatMessage[],
-  profile: CandidateProfile
+  profile: CandidateProfile,
+  forceLanguage?: LanguageMode
 ): Promise<ChatMessage> {
-  const lang = detectLanguage(prompt);
+  const lang = forceLanguage || detectLanguage(prompt);
   const lower = prompt.toLowerCase();
 
   // 1. Try sending to actual backend if implemented
