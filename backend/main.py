@@ -29,14 +29,13 @@ def purge_expired_session_memory() -> int:
 async def cleanup_expired_session_memory(database_ready: bool) -> None:
     while True:
         await asyncio.sleep(settings.session_memory_cleanup_interval_seconds)
+        if not database_ready:
+            continue
         try:
-            if not database_ready:
-                await asyncio.to_thread(initialize_database)
-                database_ready = True
             await asyncio.to_thread(purge_expired_session_memory)
         except SQLAlchemyError:
             database_ready = False
-            logger.exception("Could not purge expired session memory")
+            logger.warning("Session memory cleanup paused: database unavailable.")
 
 
 @asynccontextmanager
@@ -47,9 +46,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         check_database_connection()
         initialize_database()
         database_ready = True
-        logger.info("Database connection established")
-    except Exception as exc:
-        logger.warning("Database is unavailable at startup: %s", exc)
+        logger.info("Database connection established (PostgreSQL)")
+    except Exception:
+        logger.info("PostgreSQL local non detecte : bascule automatique en mode SQLite local.")
     cleanup_task = asyncio.create_task(cleanup_expired_session_memory(database_ready))
     try:
         yield
