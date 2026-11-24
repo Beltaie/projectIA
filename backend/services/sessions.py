@@ -54,7 +54,18 @@ def get_valid_session(db: Session, session_id: str, token: str | None) -> ChatSe
         or session.expires_at <= now
     ):
         raise _invalid_session()
+    
 
     session.last_activity_at = now
     db.commit()
+    return session
+def require_candidate_session(session: ChatSession) -> ChatSession:
+    """Allow only sessions linked to an identified candidate.
+    Use it on every endpoint that touches personal data."""
+    if session.candidate_id is None:
+        raise AppError(
+            "A candidate account is required for this action.",
+            status_code=403,
+            code="candidate_required",
+        )
     return session
