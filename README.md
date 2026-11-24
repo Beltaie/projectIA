@@ -44,7 +44,7 @@ Vérifiez que Docker Desktop est démarré, puis lancez depuis la racine :
 docker-compose up -d
 ```
 
-PostgreSQL avec `pgvector` est disponible sur `localhost:5432`. Le script `init-db.sql` crée l'extension et les tables de démonstration et insère deux comptes, trois formations IIT et deux formations ISB à la première initialisation du volume.
+PostgreSQL avec `pgvector` est disponible sur `localhost:5432`. Le script `init-db.sql` crée l'extension, les tables de démonstration et le schéma documentaire RAG (`documents`, `document_versions`, `sync_jobs` et `document_chunks`), puis insère deux comptes, trois formations IIT et deux formations ISB à la première initialisation du volume. Les embeddings sont définis en 1536 dimensions : adaptez cette dimension et l'index HNSW si le modèle d'embedding choisi en utilise une autre.
 
 - Interface pgAdmin : <http://localhost:5050>
 - Identifiants pgAdmin : ceux de `PGADMIN_DEFAULT_EMAIL` et `PGADMIN_DEFAULT_PASSWORD` dans `.env`
