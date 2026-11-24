@@ -42,7 +42,7 @@ def list_institutions(db: Session = Depends(get_db)):
 
 @router.get("/programs", response_model=List[ProgramOut])
 def list_programs(
-    institution_id: Optional[int] = Query(None, description="Filtrer par institution (IIT/ISB)"),
+    institution_id: Optional[str] = Query(None, description="Filtrer par ID ou Code d'institution (ex: 1 ou IIT, ISB)"),
     track: Optional[str] = Query(None, description="Filtrer par cycle: LICENCE, PREPA, INGENIEUR"),
     language: Optional[str] = Query(None, description="Filtrer par langue: FR, EN"),
     active_only: bool = Query(True, description="Uniquement les programmes actifs"),
@@ -51,7 +51,10 @@ def list_programs(
     """List academic programs with flexible filtering."""
     query = select(Program).join(Institution)
     if institution_id:
-        query = query.where(Program.institution_id == institution_id)
+        if institution_id.isdigit():
+            query = query.where(Program.institution_id == int(institution_id))
+        else:
+            query = query.where(Institution.code == institution_id.upper())
     if track:
         query = query.where(Program.track == track.upper())
     if language:
