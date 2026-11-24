@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from api.routes import auth, catalog, chat, health
+from api.routes import auth, catalog, chat, health, sessions
 
 
 api_router = APIRouter()
@@ -8,3 +8,4 @@ api_router.include_router(health.router)
 api_router.include_router(auth.router)
 api_router.include_router(catalog.router)
 api_router.include_router(chat.router)
+api_router.include_router(sessions.router)
