@@ -1,0 +1,34 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: smartcampus-db
+    environment:
+      POSTGRES_DB: smartcampus
+      POSTGRES_USER: smartcampus
+      POSTGRES_PASSWORD: smartcampus_dev_password
+    ports:
+      - "5433:5432"
+    volumes:
+      - test_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smartcampus -d smartcampus"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  migrate:
+    image: flyway/flyway:10
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./backend/bd/migrations:/flyway/sql/migrations:ro
+      - ./backend/bd/seed:/flyway/sql/seed:ro
+    command: >
+      -url=jdbc:postgresql://db:5432/smartcampus
+      -user=smartcampus -password=smartcampus_dev_password
+      -locations=filesystem:/flyway/sql/migrations,filesystem:/flyway/sql/seed
+      -connectRetries=10 migrate
+
+volumes:
+  test_pgdata:
