@@ -45,7 +45,7 @@ services:
         condition: service_completed_successfully
     environment:
       - DATABASE_URL=postgresql+psycopg://smartcampus:smartcampus_dev_password@db:5432/smartcampus
-      - CORS_ORIGINS=http://localhost:5173,http://localhost:3000
+      - CORS_ORIGINS=["http://localhost:5173","http://localhost:3000"]
     ports:
       - "8000:8000"
 
