@@ -24,3 +24,15 @@ class MessagePage(BaseModel):
     page: int
     size: int
     total: int
+
+
+class MessageCreate(BaseModel):
+    content: str
+
+
+class SessionClaimed(BaseModel):
+    session_id: uuid.UUID
+    claimed_by_user_id: uuid.UUID
+    claimed_at: datetime
+    message_count: int
+    status: str = "claimed"

@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import CHAR, BigInteger, DateTime, ForeignKey, String, Text, func, text
+from sqlalchemy import CHAR, DateTime, ForeignKey, Integer, String, Text, func, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -15,7 +15,7 @@ class ChatSession(Base):
     __tablename__ = "chat_sessions"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     token_hash: Mapped[str] = mapped_column(CHAR(64), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
@@ -36,7 +36,7 @@ class ChatSession(Base):
 class ChatMessage(Base):
     __tablename__ = "chat_messages"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     session_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("chat_sessions.id", ondelete="CASCADE"),

@@ -48,11 +48,14 @@ def get_valid_session(db: Session, session_id: str, token: str | None) -> ChatSe
 
     session = db.get(ChatSession, sid)
     now = datetime.now(timezone.utc)
-    if (
-        session is None
-        or not hmac.compare_digest(session.token_hash, hash_token(token))
-        or session.expires_at <= now
-    ):
+    if session is None:
+        raise _invalid_session()
+
+    expires_at = session.expires_at
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+
+    if not hmac.compare_digest(session.token_hash, hash_token(token)) or expires_at <= now:
         raise _invalid_session()
 
     session.last_activity_at = now

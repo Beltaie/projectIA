@@ -1,10 +1,14 @@
-from fastapi import APIRouter, Depends, Header, Query
+from datetime import datetime
+from fastapi import APIRouter, Depends, Header, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from core.errors import AppError
 from database import get_db
-from models.chat import ChatMessage
-from schemas.chat import MessagePage, SessionCreated
+from models.chat import ChatMessage, ChatSession
+from models.user import User
+from schemas.chat import MessageCreate, MessageOut, MessagePage, SessionClaimed, SessionCreated
+from services.auth_service import get_current_user
 from services.sessions import create_session, get_valid_session
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
@@ -43,3 +47,66 @@ def list_messages(
         .limit(size)
     ).all()
     return MessagePage(items=items, page=page, size=size, total=total or 0)
+
+
+@router.post("/sessions/{session_id}/messages", status_code=201, response_model=MessageOut)
+def send_message(
+    session_id: str,
+    req: MessageCreate,
+    x_session_token: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    """Post a message to a chat session."""
+    session = get_valid_session(db, session_id, x_session_token)
+    msg = ChatMessage(session_id=session.id, role="user", content=req.content)
+    db.add(msg)
+    session.last_activity_at = func.now()
+    db.commit()
+    db.refresh(msg)
+    return msg
+
+
+# =========================================================================
+# SA-29 : Associer une conversation invitée à un compte candidat (Assignée à : EK)
+# =========================================================================
+
+@router.post("/sessions/{session_id}/claim", response_model=SessionClaimed)
+def claim_chat_session(
+    session_id: str,
+    x_session_token: str | None = Header(default=None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Associate an anonymous guest chat session to a candidate's registered account.
+    Requires authentication (Bearer JWT) and the guest session token (X-Session-Token).
+    """
+    session = get_valid_session(db, session_id, x_session_token)
+
+    if session.user_id is not None:
+        if session.user_id == current_user.id:
+            # Already claimed by this same user
+            count = db.scalar(select(func.count()).select_from(ChatMessage).where(ChatMessage.session_id == session.id)) or 0
+            return SessionClaimed(
+                session_id=session.id,
+                claimed_by_user_id=current_user.id,
+                claimed_at=session.claimed_at or datetime.now(),
+                message_count=count,
+                status="already_claimed",
+            )
+        raise AppError("Cette session est déjà associée à un autre utilisateur.", status_code=403, code="session_already_claimed")
+
+    session.user_id = current_user.id
+    session.claimed_at = func.now()
+    session.last_activity_at = func.now()
+    db.commit()
+    db.refresh(session)
+
+    count = db.scalar(select(func.count()).select_from(ChatMessage).where(ChatMessage.session_id == session.id)) or 0
+    return SessionClaimed(
+        session_id=session.id,
+        claimed_by_user_id=current_user.id,
+        claimed_at=session.claimed_at,
+        message_count=count,
+        status="claimed",
+    )
