@@ -4,8 +4,8 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from models.chat import ChatMessage
-from schemas.chat import MessagePage, SessionCreated
-from services.sessions import create_session, get_valid_session
+from schemas.chat import MessageCreate, MessageOut, MessagePage, SessionCreated
+from services.sessions import add_message, create_session, get_valid_session
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 
@@ -43,3 +43,15 @@ def list_messages(
         .limit(size)
     ).all()
     return MessagePage(items=items, page=page, size=size, total=total or 0)
+
+
+@router.post("/sessions/{session_id}/messages", status_code=201, response_model=MessageOut)
+def post_message(
+    session_id: str,
+    body: MessageCreate,
+    x_session_token: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    """Store one visitor message. Needs the X-Session-Token header."""
+    session = get_valid_session(db, session_id, x_session_token)
+    return add_message(db, session, "user", body.content)

@@ -4,12 +4,12 @@ import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
 
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
+from config.settings import settings
 from core.errors import AppError
-from models.chat import ChatSession
-
-SESSION_TTL = timedelta(hours=24)  # guest session lifetime (api-design.md)
+from models.chat import ChatMessage, ChatSession
 
 
 def hash_token(token: str) -> str:
@@ -26,10 +26,11 @@ def _invalid_session() -> AppError:
 def create_session(db: Session) -> tuple[ChatSession, str]:
     """Create a guest session. Returns the row and the CLEAR token.
     The clear token is never stored: only its hash is."""
+    delete_expired_sessions(db)
     token = secrets.token_urlsafe(32)
     session = ChatSession(
         token_hash=hash_token(token),
-        expires_at=datetime.now(timezone.utc) + SESSION_TTL,
+        expires_at=datetime.now(timezone.utc) + timedelta(hours=settings.session_ttl_hours),
     )
     db.add(session)
     db.commit()
@@ -54,11 +55,12 @@ def get_valid_session(db: Session, session_id: str, token: str | None) -> ChatSe
         or session.expires_at <= now
     ):
         raise _invalid_session()
-    
 
     session.last_activity_at = now
     db.commit()
     return session
+
+
 def require_candidate_session(session: ChatSession) -> ChatSession:
     """Allow only sessions linked to an identified candidate.
     Use it on every endpoint that touches personal data."""
@@ -69,3 +71,29 @@ def require_candidate_session(session: ChatSession) -> ChatSession:
             code="candidate_required",
         )
     return session
+
+
+def delete_expired_sessions(db: Session) -> int:
+    """Delete expired sessions. Their messages go too (ON DELETE CASCADE)."""
+    result = db.execute(
+        delete(ChatSession).where(ChatSession.expires_at <= datetime.now(timezone.utc))
+    )
+    db.commit()
+    return result.rowcount
+
+
+def add_message(db: Session, session: ChatSession, role: str, content: str) -> ChatMessage:
+    count = db.scalar(
+        select(func.count()).select_from(ChatMessage).where(ChatMessage.session_id == session.id)
+    ) or 0
+    if count >= settings.max_messages_per_session:
+        raise AppError(
+            "Message limit reached for this session.",
+            status_code=429,
+            code="session_limit_reached",
+        )
+    message = ChatMessage(session_id=session.id, role=role, content=content)
+    db.add(message)
+    db.commit()
+    db.refresh(message)
+    return message

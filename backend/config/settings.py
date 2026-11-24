@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     app_version: str = "1.0.0"
     environment: str = "development"
     database_url: str = "postgresql+psycopg://smartcampus:smartcampus_dev_password@localhost:5432/smartcampus"
+    session_ttl_hours: int = 24
+    max_messages_per_session: int = 50
+    max_message_length: int = 1000
     cors_origins: list[str] = Field(
         default_factory=lambda: [
             "http://localhost:3000",
