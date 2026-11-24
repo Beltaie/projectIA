@@ -79,7 +79,9 @@ def require_candidate_session(session: ChatSession) -> ChatSession:
 def delete_expired_sessions(db: Session) -> int:
     """Delete expired sessions. Their messages go too (ON DELETE CASCADE)."""
     result = db.execute(
-        delete(ChatSession).where(ChatSession.expires_at <= datetime.now(timezone.utc))
+        delete(ChatSession)
+        .where(ChatSession.expires_at <= datetime.now(timezone.utc))
+        .execution_options(synchronize_session=False)
     )
     db.commit()
     return result.rowcount

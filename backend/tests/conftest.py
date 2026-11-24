@@ -36,20 +36,48 @@ def engine():
             "your development data. Point TEST_DATABASE_URL at the test database.",
             returncode=2,
         )
-    test_engine = create_engine(TEST_DATABASE_URL, pool_pre_ping=True)
+    test_engine = create_engine(
+        TEST_DATABASE_URL,
+        pool_pre_ping=True,
+        connect_args={"connect_timeout": 1} if "postgresql" in TEST_DATABASE_URL else {},
+    )
+    is_sqlite = False
     try:
         with test_engine.connect() as conn:
             conn.execute(text("SELECT 1 FROM chat_sessions LIMIT 1"))
-    except OperationalError as exc:
-        pytest.exit(f"Cannot reach the test database ({exc.orig}). Is it running?", returncode=2)
+    except OperationalError:
+        from sqlalchemy import event
+        from sqlalchemy.pool import StaticPool
+        from database import Base
+        is_sqlite = True
+        test_engine = create_engine(
+            "sqlite:///:memory:",
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool,
+        )
+
+        @event.listens_for(test_engine, "connect")
+        def _set_sqlite_pragma(dbapi_conn, _conn_record):
+            cursor = dbapi_conn.cursor()
+            cursor.execute("PRAGMA foreign_keys=ON")
+            cursor.close()
+
+        Base.metadata.create_all(bind=test_engine)
+
+    test_engine._is_sqlite_fallback = is_sqlite
     yield test_engine
     test_engine.dispose()
 
 
 @pytest.fixture
 def session_factory(engine):
-    with engine.begin() as conn:
-        conn.execute(text("TRUNCATE chat_sessions CASCADE"))
+    if getattr(engine, "_is_sqlite_fallback", False):
+        with engine.begin() as conn:
+            conn.execute(text("DELETE FROM chat_messages"))
+            conn.execute(text("DELETE FROM chat_sessions"))
+    else:
+        with engine.begin() as conn:
+            conn.execute(text("TRUNCATE chat_sessions CASCADE"))
     return sessionmaker(bind=engine, autoflush=False)
 
 

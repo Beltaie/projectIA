@@ -1,11 +1,27 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
-from sqlalchemy import CHAR, DateTime, ForeignKey, Integer, String, Text, func, text
+from sqlalchemy import CHAR, DateTime, ForeignKey, Integer, String, Text, TypeDecorator, func, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from database import Base
+
+
+class UTCDateTime(TypeDecorator):
+    """Preserves UTC timezone on both PostgreSQL (TIMESTAMPTZ) and SQLite."""
+    impl = DateTime(timezone=True)
+    cache_ok = True
+
+    def process_bind_param(self, value, dialect):
+        if value is not None and value.tzinfo is not None:
+            return value.astimezone(timezone.utc)
+        return value
+
+    def process_result_value(self, value, dialect):
+        if value is not None and value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value
 
 # The tables are created by Flyway (V10__chat_sessions.sql), NOT by SQLAlchemy.
 # Never call Base.metadata.create_all(): these classes only describe the tables.
@@ -19,12 +35,12 @@ class ChatSession(Base):
     )
     token_hash: Mapped[str] = mapped_column(CHAR(64), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
+        UTCDateTime, nullable=False, server_default=func.now()
     )
     last_activity_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
+        UTCDateTime, nullable=False, server_default=func.now()
     )
-    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
     user_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )

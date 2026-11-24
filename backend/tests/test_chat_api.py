@@ -18,7 +18,7 @@ def test_post_session_returns_id_token_and_expiry(client) -> None:
     assert response.status_code == 201
     body = response.json()
     assert set(body) == {"session_id", "session_token", "expires_at"}
-    expires_at = datetime.fromisoformat(body["expires_at"])
+    expires_at = datetime.fromisoformat(body["expires_at"].replace("Z", "+00:00"))
     ttl = timedelta(hours=settings.session_ttl_hours)
     assert abs(expires_at - (datetime.now(timezone.utc) + ttl)) < timedelta(minutes=1)
 
@@ -83,8 +83,9 @@ def test_message_limit_returns_429(client, monkeypatch) -> None:
 
 
 def test_expired_session_is_rejected(client, db) -> None:
+    import uuid
     session_id, headers = _start_session(client)
-    session = db.get(ChatSession, session_id)
+    session = db.get(ChatSession, uuid.UUID(session_id))
     session.expires_at = datetime.now(timezone.utc) - timedelta(seconds=1)
     db.commit()
 

@@ -1,4 +1,4 @@
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 from sqlalchemy import delete, func, select
@@ -16,7 +16,7 @@ class SessionMemoryService:
         self.db_session = db_session
 
     def create_session(self) -> ConversationSession:
-        now = datetime.now(UTC)
+        now = datetime.now(timezone.utc)
         self.purge_expired_sessions(now)
 
         active_sessions = self.db_session.scalar(
@@ -49,7 +49,7 @@ class SessionMemoryService:
         session_id: str,
         message_data: MessageCreate,
     ) -> ConversationMessage:
-        now = datetime.now(UTC)
+        now = datetime.now(timezone.utc)
         self.purge_expired_sessions(now)
         conversation = self._get_active_session(session_id, now)
 
@@ -89,7 +89,7 @@ class SessionMemoryService:
         self,
         session_id: str,
     ) -> tuple[ConversationSession, list[ConversationMessage]]:
-        now = datetime.now(UTC)
+        now = datetime.now(timezone.utc)
         self.purge_expired_sessions(now)
         conversation = self._get_active_session(session_id, now)
         messages = list(
@@ -105,7 +105,7 @@ class SessionMemoryService:
         return conversation, messages
 
     def purge_expired_sessions(self, now: datetime | None = None) -> int:
-        current_time = now or datetime.now(UTC)
+        current_time = now or datetime.now(timezone.utc)
         expired_session_ids = self.db_session.scalars(
             select(ConversationSession.id).where(
                 ConversationSession.expires_at <= current_time

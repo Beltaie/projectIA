@@ -1,5 +1,5 @@
 from collections.abc import Iterator
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from fastapi.testclient import TestClient
 import pytest
@@ -89,7 +89,7 @@ def test_expired_session_is_inaccessible_and_its_messages_are_deleted(
     with test_session_factory() as db_session:
         conversation = db_session.get(ConversationSession, session_id)
         assert conversation is not None
-        conversation.expires_at = datetime.now(UTC) - timedelta(seconds=1)
+        conversation.expires_at = datetime.now(timezone.utc) - timedelta(seconds=1)
         db_session.commit()
 
     response = client.get(f"/sessions/{session_id}/messages")
