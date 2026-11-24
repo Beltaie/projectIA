@@ -65,12 +65,20 @@ def register_exception_handlers(app: FastAPI) -> None:
         _request: Request,
         exc: RequestValidationError,
     ) -> JSONResponse:
+        validation_details = [
+            {
+                key: error[key]
+                for key in ("type", "loc", "msg")
+                if key in error
+            }
+            for error in exc.errors()
+        ]
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             content=_error_payload(
                 "validation_error",
                 "The request contains invalid data.",
-                exc.errors(),
+                validation_details,
             ),
         )
 
