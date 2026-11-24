@@ -3,7 +3,8 @@ CREATE TABLE chat_sessions (
   token_hash       CHAR(64)    NOT NULL,
   created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
   last_activity_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  expires_at       TIMESTAMPTZ NOT NULL
+  expires_at       TIMESTAMPTZ NOT NULL,
+  candidate_id     UUID NULL
 );
 
 CREATE TABLE chat_messages (

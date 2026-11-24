@@ -9,7 +9,7 @@ from models.chat import ChatMessage, ChatSession
 from models.user import User
 from schemas.chat import MessageCreate, MessageOut, MessagePage, SessionClaimed, SessionCreated
 from services.auth_service import get_current_user
-from services.sessions import create_session, get_valid_session
+from services.sessions import add_message, create_session, get_valid_session
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 
@@ -50,20 +50,15 @@ def list_messages(
 
 
 @router.post("/sessions/{session_id}/messages", status_code=201, response_model=MessageOut)
-def send_message(
+def post_message(
     session_id: str,
-    req: MessageCreate,
+    body: MessageCreate,
     x_session_token: str | None = Header(default=None),
     db: Session = Depends(get_db),
 ):
-    """Post a message to a chat session."""
+    """Store one visitor message. Needs the X-Session-Token header."""
     session = get_valid_session(db, session_id, x_session_token)
-    msg = ChatMessage(session_id=session.id, role="user", content=req.content)
-    db.add(msg)
-    session.last_activity_at = func.now()
-    db.commit()
-    db.refresh(msg)
-    return msg
+    return add_message(db, session, "user", body.content)
 
 
 # =========================================================================
@@ -85,7 +80,6 @@ def claim_chat_session(
 
     if session.user_id is not None:
         if session.user_id == current_user.id:
-            # Already claimed by this same user
             count = db.scalar(select(func.count()).select_from(ChatMessage).where(ChatMessage.session_id == session.id)) or 0
             return SessionClaimed(
                 session_id=session.id,
@@ -97,6 +91,7 @@ def claim_chat_session(
         raise AppError("Cette session est déjà associée à un autre utilisateur.", status_code=403, code="session_already_claimed")
 
     session.user_id = current_user.id
+    session.candidate_id = current_user.id
     session.claimed_at = func.now()
     session.last_activity_at = func.now()
     db.commit()
